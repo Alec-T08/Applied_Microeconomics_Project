@@ -1,0 +1,99 @@
+---
+title: "Bootstrap__474886"
+author: "Abdukholik_Tukhtamishev"
+date: "2025-01-03"
+output: html_document
+---
+# ***Codes and Plots***
+```{r}
+###### Load Required Packages ##########
+requiredPackages = c("readr", "RColorBrewer", "cluster") # List of required packages
+for(i in requiredPackages) {
+  if(!require(i, character.only = TRUE)) install.packages(i)
+  library(i, character.only = TRUE)
+}
+
+# Set working directory (adjust to your path)
+setwd('E:/UWarsaw/Applied_Micro/Data codes (1)/Data codes')
+
+# Load the sample data
+sample_2024 <- read_csv("sample_2024.csv")
+
+# Randomly sample 350 points from the dataset
+set.seed(123)  # For reproducibility
+sample_350 <- sample_2024[sample(1:nrow(sample_2024), 350), ]
+# Illustrating 4 plots together
+par(mfrow = c(2, 2))
+##### K-means Clustering ##########
+# Perform K-means clustering with 3 clusters
+set.seed(123)
+kmeans_res <- kmeans(sample_350[, c("x", "y")], centers = 3)
+sample_350$cluster <- as.factor(kmeans_res$cluster)
+
+# Visualize the clustering result
+plot(sample_350$x, sample_350$y, col = sample_350$cluster, pch = 19,
+     main = "K-means Clustering of Sample Data")
+
+########### Identify Best Cluster #########
+# Identify the cluster with the most linear fit (highest R-squared)
+best_cluster <- which.max(sapply(unique(sample_350$cluster), function(c) {
+  cluster_data <- sample_350[sample_350$cluster == c, ]
+  summary(lm(y ~ x, data = cluster_data))$r.squared
+}))
+
+best_cluster_data <- sample_350[sample_350$cluster == best_cluster, ]
+
+########### Bootstrapping within the Best Cluster ##########
+B <- 1000  # Number of bootstrapping iterations
+alfa_b <- numeric(B)  # Intercept estimates
+beta_b <- numeric(B)  # Slope estimates
+
+set.seed(123)  # For reproducibility
+for (i in 1:B) {
+  # Sample with replacement within the best cluster
+  sample_b_ind <- sample(1:nrow(best_cluster_data), nrow(best_cluster_data), replace = TRUE)
+  sample_b <- best_cluster_data[sample_b_ind, ]
+  mnk_b <- lm(y ~ x, data = sample_b)
+  
+  # Store alpha (intercept) and beta (slope)
+  alfa_b[i] <- summary(mnk_b)$coefficients[1, 1]  # Intercept
+  beta_b[i] <- summary(mnk_b)$coefficients[2, 1]  # Slope
+}
+
+##### Visualization of Bootstrapping Results ######
+# Histogram of alpha (intercept)
+hist(alfa_b, main = "Histogram of Intercept Estimates (α)", col = "lightblue", breaks = 50, probability = TRUE)
+lines(density(alfa_b), lwd = 3)
+
+# Histogram of beta (slope)
+hist(beta_b, main = "Histogram of Slope Estimates (β)", col = "lightblue", breaks = 50, probability = TRUE)
+lines(density(beta_b), lwd = 3)
+
+# Scatterplot of (α, β)
+plot(alfa_b, beta_b, pch = 19, col = rgb(0, 0, 1, 0.5), 
+     xlab = "Intercept (α)", ylab = "Slope (β)", 
+     main = "Scatterplot of Bootstrapped (α, β) Estimates")
+abline(h = mean(beta_b), v = mean(alfa_b), col = "red", lwd = 2)
+
+# Print mean alpha and beta values
+mean_alpha <- mean(alfa_b)
+mean_beta <- mean(beta_b)
+cat("Mean α (intercept):", mean_alpha, "\n")
+cat("Mean β (slope):", mean_beta, "\n")
+
+```
+In this project, we began by ensuring that all the necessary R packages were installed and loaded, including `readr`, `RColorBrewer`, and `cluster`, to handle data reading, visualization, and clustering functions. We set the working directory to the appropriate path and loaded the dataset `sample_2024.csv` containing paired observations of `x` and `y` values. The dataset was summarized to understand its structure and basic statistical properties, followed by an initial visualization of data distributions.
+
+Next, we applied k-means clustering to partition the dataset into three clusters by specifying `centers=3`. This process grouped the data points into three distinct subgroups based on their similarities in the `x` and `y` values. A scatter plot was generated to visualize these clusters, with each cluster assigned a unique color to highlight their distribution within the data space.
+
+Following the clustering, we identified the "best" cluster—the one with the strongest linear relationship—by calculating the R-squared value for each cluster's linear regression. The cluster with the highest R-squared value was chosen for further analysis, as it represented the subset of data with the most linear pattern.
+
+Once the optimal cluster was selected, we performed bootstrapping exclusively within this cluster. Bootstrapping involved drawing resamples with replacement from the selected cluster 1,000 times. For each resample, we fitted a linear regression model to estimate the intercept (\( \alpha \)) and slope (\( \beta \)). The estimated coefficients from each iteration were stored, creating distributions for both \( \alpha \) and \( \beta \).
+
+To better understand the variability and stability of these estimates, we plotted histograms for both the intercept and slope distributions. The histograms showed the frequency of different values, overlaid with density lines to highlight their approximate distributions. Additionally, a scatterplot of the bootstrapped estimates of \( \alpha \) and \( \beta \) was created, with the points color-coded based on density to emphasize the clustering of estimates. A reference line was drawn at the means of \( \alpha \) and \( \beta \) to visualize their central tendencies.
+
+This approach allowed us to refine the regression analysis by focusing on the most relevant data subset, reducing the impact of noise and outliers, and gaining insight into the confidence and stability of the estimated coefficients. By combining clustering and bootstrapping, we enhanced the accuracy and robustness of the linear model, ensuring that our final estimates were more representative of the underlying true relationship between \( x \) and \( y \).
+
+
+
+
